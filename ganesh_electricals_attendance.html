@@ -1,0 +1,550 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GANESH ELECTRICALS Attendance</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,sans-serif;
+}
+
+body{
+    background:#eef3f9;
+    padding:20px;
+}
+
+.container{
+    background:#fff;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 0 15px rgba(0,0,0,0.1);
+    overflow:auto;
+}
+
+h1{
+    text-align:center;
+    color:#003366;
+    margin-bottom:20px;
+}
+
+.controls{
+    display:flex;
+    gap:15px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+    align-items:center;
+}
+
+select,button{
+    padding:10px 15px;
+    border:none;
+    border-radius:6px;
+    font-size:14px;
+}
+
+button{
+    cursor:pointer;
+}
+
+.generate-btn{
+    background:#003366;
+    color:white;
+}
+
+.download-btn{
+    background:#198754;
+    color:white;
+}
+
+.calc-btn{
+    background:#ff9800;
+    color:white;
+    position:relative;
+    overflow:hidden;
+}
+
+.calc-btn:active{
+    transform:scale(0.95);
+}
+
+.animate{
+    animation:bounce 0.4s;
+}
+
+@keyframes bounce{
+    0%{transform:scale(1);}
+    50%{transform:scale(1.1);}
+    100%{transform:scale(1);}
+}
+
+table{
+    border-collapse:collapse;
+    width:100%;
+    min-width:2400px;
+}
+
+th,td{
+    border:1px solid #ccc;
+    text-align:center;
+    padding:6px;
+    font-size:14px;
+}
+
+th{
+    background:#003366;
+    color:white;
+    position:sticky;
+    top:0;
+}
+
+.name-col{
+    background:#eef5ff;
+    font-weight:bold;
+    min-width:150px;
+}
+
+.status-btn{
+    width:38px;
+    height:38px;
+    border:none;
+    border-radius:5px;
+    color:white;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.present{
+    background:#28a745;
+}
+
+.absent{
+    background:#dc3545;
+}
+
+.offday{
+    background:#ff9800;
+}
+
+.empty{
+    background:#cfcfcf;
+    color:black;
+}
+
+.summary{
+    background:#fff4cc;
+    font-weight:bold;
+}
+
+.number-input{
+    width:90px;
+    padding:5px;
+    text-align:center;
+}
+
+.legend{
+    display:flex;
+    gap:15px;
+    margin-bottom:15px;
+    flex-wrap:wrap;
+}
+
+.legend span{
+    padding:8px 12px;
+    color:white;
+    border-radius:5px;
+    font-weight:bold;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>GANESH ELECTRICALS COMPANY - Worker Attendance</h1>
+
+<div class="controls">
+
+<select id="monthSelect">
+<option value="0">January</option>
+<option value="1">February</option>
+<option value="2">March</option>
+<option value="3">April</option>
+<option value="4">May</option>
+<option value="5" selected>June</option>
+<option value="6">July</option>
+<option value="7">August</option>
+<option value="8">September</option>
+<option value="9">October</option>
+<option value="10">November</option>
+<option value="11">December</option>
+</select>
+
+<select id="yearSelect">
+<option>2025</option>
+<option selected>2026</option>
+<option>2027</option>
+</select>
+
+<button class="generate-btn" onclick="generateTable()">
+Generate Month
+</button>
+
+<button class="calc-btn" onclick="calculateAttendance(this)">
+⚡ Calculate Salary
+</button>
+
+<button class="download-btn" onclick="downloadExcel()">
+⬇ Download Excel
+</button>
+
+</div>
+
+<div class="legend">
+<span style="background:#28a745;">P = Present</span>
+<span style="background:#dc3545;">A = Absent</span>
+<span style="background:#ff9800;">OD = Off Day Worked</span>
+</div>
+
+<div style="overflow:auto;">
+<table id="attendanceTable">
+<thead id="tableHead"></thead>
+<tbody id="tableBody"></tbody>
+</table>
+</div>
+
+</div>
+
+<script>
+
+const workers = [
+"DURGA",
+"BOLENATH",
+"SAMEER",
+"SUNIL",
+"SRIRAM",
+"PUNEENDRA",
+"UNIL JCB",
+"RAHUL",
+"LALDAS",
+"LAXMAN",
+"BAGUN",
+"UDAI"
+];
+
+function getStorageKey(){
+    const month = document.getElementById("monthSelect").value;
+    const year = document.getElementById("yearSelect").value;
+    return `attendance_${year}_${month}`;
+}
+
+function generateTable(){
+
+    const month = parseInt(document.getElementById("monthSelect").value);
+    const year = parseInt(document.getElementById("yearSelect").value);
+
+    const monthNames = [
+        "Jan","Feb","Mar","Apr","May","Jun",
+        "Jul","Aug","Sep","Oct","Nov","Dec"
+    ];
+
+    const daysInMonth = new Date(year, month+1, 0).getDate();
+
+    let head = `
+    <tr>
+    <th>S.NO</th>
+    <th>NAME</th>
+    `;
+
+    for(let d=1; d<=daysInMonth; d++){
+        head += `<th>${monthNames[month]}-${d}</th>`;
+    }
+
+    head += `
+    <th>PRESENT</th>
+    <th>ABSENT</th>
+    <th>OD</th>
+    <th>ONE DAY AMOUNT</th>
+    <th>TOTAL AMOUNT</th>
+    <th>ADVANCE</th>
+    <th>BANK</th>
+    <th>FINAL BALANCE</th>
+    </tr>
+    `;
+
+    document.getElementById("tableHead").innerHTML = head;
+
+    let body = "";
+
+    workers.forEach((worker,index)=>{
+
+        body += `
+        <tr>
+        <td>${index+1}</td>
+        <td class="name-col">${worker}</td>
+        `;
+
+        for(let d=1; d<=daysInMonth; d++){
+            body += `
+            <td>
+            <button class="status-btn empty"
+            onclick="toggleStatus(this)">
+            -
+            </button>
+            </td>
+            `;
+        }
+
+        body += `
+        <td class="summary presentCount">0</td>
+        <td class="summary absentCount">0</td>
+        <td class="summary odCount">0</td>
+
+        <td>
+        <input type="number" class="number-input dayAmount" value="500">
+        </td>
+
+        <td class="summary totalAmount">0</td>
+
+        <td>
+        <input type="number" class="number-input advance" value="0">
+        </td>
+
+        <td>
+        <input type="number" class="number-input bank" value="0">
+        </td>
+
+        <td class="summary finalBalance">0</td>
+
+        </tr>
+        `;
+    });
+
+    document.getElementById("tableBody").innerHTML = body;
+
+    loadData();
+
+}
+
+function toggleStatus(btn){
+
+    if(btn.innerText === "-"){
+        btn.innerText = "P";
+        btn.className = "status-btn present";
+    }
+
+    else if(btn.innerText === "P"){
+        btn.innerText = "A";
+        btn.className = "status-btn absent";
+    }
+
+    else if(btn.innerText === "A"){
+        btn.innerText = "OD";
+        btn.className = "status-btn offday";
+    }
+
+    else{
+        btn.innerText = "-";
+        btn.className = "status-btn empty";
+    }
+
+    saveData();
+}
+
+function calculateAttendance(button){
+
+    button.classList.add("animate");
+
+    setTimeout(()=>{
+        button.classList.remove("animate");
+    },400);
+
+    const rows = document.querySelectorAll("#tableBody tr");
+
+    rows.forEach(row=>{
+
+        const buttons = row.querySelectorAll(".status-btn");
+
+        let present = 0;
+        let absent = 0;
+        let od = 0;
+
+        buttons.forEach(btn=>{
+
+            if(btn.innerText === "P"){
+                present++;
+            }
+
+            else if(btn.innerText === "A"){
+                absent++;
+            }
+
+            else if(btn.innerText === "OD"){
+                od++;
+            }
+
+        });
+
+        row.querySelector(".presentCount").innerText = present;
+        row.querySelector(".absentCount").innerText = absent;
+        row.querySelector(".odCount").innerText = od;
+
+        const oneDay =
+        parseFloat(row.querySelector(".dayAmount").value)||0;
+
+        const total =
+        (present * oneDay) + (od * oneDay);
+
+        row.querySelector(".totalAmount").innerText = total;
+
+        const advance =
+        parseFloat(row.querySelector(".advance").value)||0;
+
+        const bank =
+        parseFloat(row.querySelector(".bank").value)||0;
+
+        const finalBalance =
+        total - advance - bank;
+
+        row.querySelector(".finalBalance").innerText =
+        finalBalance;
+
+    });
+
+    saveData();
+}
+
+function saveData(){
+
+    const rows = document.querySelectorAll("#tableBody tr");
+
+    let allData = [];
+
+    rows.forEach(row=>{
+
+        const rowData = [];
+
+        row.querySelectorAll("td").forEach((td,index)=>{
+
+            const btn = td.querySelector("button");
+            const input = td.querySelector("input");
+
+            if(btn){
+                rowData.push(btn.innerText);
+            }
+
+            else if(input){
+                rowData.push(input.value);
+            }
+
+            else{
+                rowData.push(td.innerText);
+            }
+
+        });
+
+        allData.push(rowData);
+
+    });
+
+    localStorage.setItem(
+        getStorageKey(),
+        JSON.stringify(allData)
+    );
+}
+
+function loadData(){
+
+    const saved =
+    localStorage.getItem(getStorageKey());
+
+    if(!saved) return;
+
+    const data = JSON.parse(saved);
+
+    const rows = document.querySelectorAll("#tableBody tr");
+
+    rows.forEach((row,rowIndex)=>{
+
+        const cells = row.querySelectorAll("td");
+
+        data[rowIndex].forEach((value,colIndex)=>{
+
+            const btn =
+            cells[colIndex]?.querySelector("button");
+
+            const input =
+            cells[colIndex]?.querySelector("input");
+
+            if(btn){
+
+                btn.innerText = value;
+
+                if(value==="P"){
+                    btn.className="status-btn present";
+                }
+
+                else if(value==="A"){
+                    btn.className="status-btn absent";
+                }
+
+                else if(value==="OD"){
+                    btn.className="status-btn offday";
+                }
+
+                else{
+                    btn.className="status-btn empty";
+                }
+
+            }
+
+            if(input){
+                input.value = value;
+            }
+
+        });
+
+    });
+
+}
+
+function downloadExcel(){
+
+    calculateAttendance(document.querySelector(".calc-btn"));
+
+    const table =
+    document.getElementById("attendanceTable");
+
+    const workbook =
+    XLSX.utils.table_to_book(table, {sheet:"Attendance"});
+
+    const monthText =
+    document.getElementById("monthSelect").options[
+    document.getElementById("monthSelect").selectedIndex
+    ].text;
+
+    const year =
+    document.getElementById("yearSelect").value;
+
+    XLSX.writeFile(
+        workbook,
+        `GANESH_ELECTRICALS_${monthText}_${year}.xlsx`
+    );
+}
+
+generateTable();
+
+</script>
+
+</body>
+</html>
